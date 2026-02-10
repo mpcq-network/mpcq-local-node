@@ -7,6 +7,23 @@ services:
     privileged: true
     network_mode: none
     command: ["-d 16"]
+  sourcify:
+    image: ghcr.io/hashgraph/hedera-sourcify/server:main
+    container_name: sourcify-server
+    restart: unless-stopped
+    ports:
+      - "5555:5555"
+    environment:
+      - PORT=5555
+      - CHAINS_FILE=/home/app/services/server/dist/sourcify-chains.json
+      - REPO_PATH=/home/app/repository
+    volumes:
+      - /home/mpcq/sourcify-repository:/tmp/sourcify/repository
+      - ./sourcify-chains.json:/home/app/services/server/dist/sourcify-chains.json
+      - ./sourcify-repo:/home/app/repository
+    networks:
+      - mirror-node
+
 
   network-node:
     image: "${NETWORK_NODE_IMAGE_PREFIX}${NETWORK_NODE_IMAGE_NAME}:${NETWORK_NODE_IMAGE_TAG}"
@@ -229,10 +246,16 @@ services:
         condition: service_started
       db:
         condition: service_started
+    # environment:
+    #   HEDERA_MIRROR_GRPC_DB_HOST: db
+    #   SPRING_CONFIG_ADDITIONAL_LOCATION: file:/usr/etc/hedera-mirror-grpc/
+    #   JAVA_TOOL_OPTIONS: "${GRPC_PLATFORM_JAVA_OPTS}"
     environment:
-      HEDERA_MIRROR_GRPC_DB_HOST: db
-      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/usr/etc/hedera-mirror-grpc/
-      JAVA_TOOL_OPTIONS: "${GRPC_PLATFORM_JAVA_OPTS}"
+      - HIERO_MIRROR_IMPORTER_DB_HOST=db
+      - HIERO_MIRROR_IMPORTER_DB_USER=mirror_node
+      - HIERO_MIRROR_IMPORTER_DB_PASSWORD=mirror_node_pass  # This was missing
+      - HIERO_MIRROR_IMPORTER_DB_NAME=mirror_node
+      - HIERO_MIRROR_IMPORTER_NETWORK=LOCALNODE
     networks:
       - mirror-node
     ports:
@@ -241,7 +264,8 @@ services:
       - "${MIRROR_NODE_CONFIG_PATH}/compose-network/mirror-node/application.yml:/usr/etc/hedera-mirror-grpc/application.yml"
 
   importer:
-    image: "${MIRROR_IMAGE_PREFIX}hedera-mirror-importer:${MIRROR_IMPORTER_IMAGE_TAG:-${MIRROR_IMAGE_TAG}}"
+    # image: "${MIRROR_IMAGE_PREFIX}hedera-mirror-importer:${MIRROR_IMPORTER_IMAGE_TAG:-${MIRROR_IMAGE_TAG}}"
+    image: "${MIRROR_IMAGE_PREFIX}hedera-mirror-importer:${MIRROR_IMAGE_TAG}"
     container_name: mirror-node-importer
     restart: unless-stopped
     mem_swappiness: 0
@@ -252,10 +276,15 @@ services:
         condition: service_started
       db:
         condition: service_started
+    # environment:
+    #   HEDERA_MIRROR_IMPORTER_DB_HOST: db
+    #   SPRING_CONFIG_ADDITIONAL_LOCATION: file:/usr/etc/hedera-mirror-importer/
+    #   JAVA_TOOL_OPTIONS: "${GRPC_PLATFORM_JAVA_OPTS}"
     environment:
-      HEDERA_MIRROR_IMPORTER_DB_HOST: db
-      SPRING_CONFIG_ADDITIONAL_LOCATION: file:/usr/etc/hedera-mirror-importer/
-      JAVA_TOOL_OPTIONS: "${GRPC_PLATFORM_JAVA_OPTS}"
+      - HIERO_MIRROR_IMPORTER_DB_HOST=db
+      - HIERO_MIRROR_IMPORTER_DB_USER=mirror_node
+      - HIERO_MIRROR_IMPORTER_DB_PASSWORD=mirror_node_pass  # Add this line
+      - HIERO_MIRROR_IMPORTER_DB_NAME=mirror_node
     networks:
       - cloud-storage
       - mirror-node
